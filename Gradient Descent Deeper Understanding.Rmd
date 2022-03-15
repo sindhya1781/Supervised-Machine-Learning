@@ -1,0 +1,145 @@
+---
+author: "Sindhya Balasubramanian"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Analyzing the behavior of different loss functions - 
+i) Quadratic Loss Functions
+ii) MAE
+iii) Huber Loss
+```{r}
+library("tidyverse")
+x <- seq(1,10);
+y_ql = x^2;
+y_mae = abs(x);
+
+d1 = 5;
+d2 = 3;
+
+y_hubb_1 = ifelse(abs(x) <= d1, 0.5 * (x^2), d1*x - 0.5*(rep(d1, length(x))^2) )
+y_hubb_2 = ifelse(abs(x) <= d2, 0.5 * (x^2), d2*x - 0.5*(rep(d2, length(x))^2) )
+
+df <- data.frame(x,y_ql, y_mae, y_hubb_1, y_hubb_2);
+
+ggplot(df, aes(x)) + geom_line(aes(y=y_ql), color="red") +
+    geom_line(aes(y=y_mae), color="blue") +
+    geom_line(aes(y=y_hubb_1), color="green") +
+    geom_line(aes(y=y_hubb_2), color="gray") +
+    labs(x = "e", y = "Loss Function")
+```
+
+
+1. We see the red line which is for the quadratic loss function with respect to the error terms. This is polynomial in nature which indicates that as the error increases the loss increases polynomially, meaning the larger error terms are penalized more than the smaller ones. This would cause problems in case there are outliers.
+2. We see that the blue line which is for MAE loss function is linear with respect to the error terms in e. This indicates that the larger errors are not penalized over the smaller ones which is useful where there are outliers in our data. However, in case of larger errors, this doesnt provide as much loss for those as quadratic loss does
+3. The green and gray lines are two versions of the huber loss function with different delta values. These come in between the mae and quadratic loss functions. Clearly handles outliers better than the quadratic loss functions but at the same time also penalizes the larger errors more than the mae loss function
+
+
+Implementation of Batch Gradient Descent for each of the above mentioned Loss Functions
+```{r}
+
+optim_fun_batch = function(X, Y, alpha, d=50, cost_func){
+  a = runif(1);
+  b = runif(1);
+  Y_pred = a * X + b;
+  n = length(Y);
+  error = sum((Y - Y_pred) ^ 2) / n;
+  flag = 0;
+  i = 0;
+  while (flag == 0){
+    if (cost_func == 1){
+    # Quadratic Loss
+      tmp_a = a - alpha * ((2 / n) * (sum((Y - Y_pred) * X)));
+      tmp_b = b - alpha * ((2 / n) * (sum(Y - Y_pred)));
+    }
+    if (cost_func == 2){
+    # MAE Loss
+      tmp_a = a - alpha * ((2 / n) * (sum(X)));
+      tmp_b = b - alpha * (2);
+    }
+    if (cost_func == 3){
+    # Huber Loss
+      e = Y - Y_pred;
+      y_hubb_a = ifelse(abs(e) <= d, -1 * e * X, -1 * d * X);
+      y_hubb_b = ifelse(abs(e) <= d, -1 * e, -1 * d);
+      tmp_a = a - alpha * ((1 / n) * sum(y_hubb_a));
+      tmp_b = b - alpha * ((1 / n) * sum(y_hubb_b));
+    }
+    a = tmp_a;
+    b = tmp_b;
+    Y_pred = a * X + b;
+    error_new = sum((Y - Y_pred) ^ 2) / n;
+    if (error - error_new <= 0.1) {
+      flag = 1;
+      return(c(a, b))
+      }
+    i = i + 1;
+    if (i > 500){
+      flag = 1;
+      return(c(a, b))
+      }
+    }
+}
+X = mtcars$disp;
+Y = mtcars$mpg;
+print ('Optimal Parameters ');
+print (optim_fun_batch(X, Y, 0.00001, 30, 1));
+```
+
+Implementation of Stochastic Gradient Descent for each of the above mentioned Loss Functions
+```{r}
+
+optim_fun_stoch = function(x, y, alpha, d=50, cost_func, n){
+  idx <- sample(nrow(as.matrix(x)), n)
+  Y <- as.matrix(y)[idx,]
+  X <- as.matrix(x)[idx,]
+  a = runif(1);
+  b = runif(1);
+  Y_pred = a * X + b;
+  n = length(Y);
+  error = sum((Y - Y_pred) ^ 2) / n;
+  flag = 0;
+  i = 0;
+  while (flag == 0){
+    if (cost_func == 1){
+    # Quadratic Loss
+      tmp_a = a - alpha * ((2 / n) * (sum((Y - Y_pred) * X)));
+      tmp_b = b - alpha * ((2 / n) * (sum(Y - Y_pred)));
+    }
+    if (cost_func == 2){
+    # MAE Loss
+      tmp_a = a - alpha * ((2 / n) * (sum(X)));
+      tmp_b = b - alpha * (2);
+    }
+    if (cost_func == 3){
+    # Huber Loss
+      e = Y - Y_pred;
+      y_hubb_a = ifelse(abs(e) <= d, -1 * e * X, -1 * d * X);
+      y_hubb_b = ifelse(abs(e) <= d, -1 * e, -1 * d);
+      tmp_a = a - alpha * ((1 / n) * sum(y_hubb_a));
+      tmp_b = b - alpha * ((1 / n) * sum(y_hubb_b));
+    }
+    a = tmp_a;
+    b = tmp_b;
+    Y_pred = a * X + b;
+    error_new = sum((Y - Y_pred) ^ 2) / n;
+    if (error - error_new <= 0.1) {
+      flag = 1;
+      return(c(a, b))
+      }
+    i = i + 1;
+    if (i > 500){
+      flag = 1;
+      return(c(a, b))
+      }
+    }
+}
+x = mtcars$disp;
+y = mtcars$mpg;
+print ('Optimal Parameters ');
+print (optim_fun_stoch(x, y, 0.00001, 30, 3, 20));
+```
+
